@@ -5,26 +5,422 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+# TASK 1
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(skimr)
+
+library(knitr) # For better table
+library(lubridate) # Task 1B test
 ```
 
-## R Markdown
+# 1. Reading data
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r}
+df <- read_csv("../data/Web Analytic_Dataset.csv")
+# df <- read.csv("../data/Web Analytic_Dataset.csv") # doesn't clean data
+df
 ```
 
-## Including Plots
+## 1.1 Dimension of the data
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+cat("The dimension of dataset: number of columns", ncol(df), "number of rows: ", nrow((df)))
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## 1.2 Structure of the dataset
+
+```{r}
+str(df) # Structure of dataset
+```
+
+```{r}
+sapply(df,class)
+```
+
+# 1.3 Check for errors:
+
+## 1.3.1 Missing value
+
+```{r}
+colSums(is.na(df))
+```
+
+## 1.3.2 duplicate value
+
+```{r}
+any(duplicated(df))
+```
+
+## 1.3.3 Incosistant data type
+
+#### 1.3.3.1 Conversion Rate
+
+The conversion rate type is character, make it hard to analysis as it can't be applied with math. So it will be converted into int However, there was some data that aren't calculate proberly as so small number (\<0.01%) so it needed to be recalculate
+
+```{r}
+df_clean_task_one <- df %>%
+  mutate(
+    Revenue = as.numeric(gsub(",", "", Revenue)),
+    Sessions = as.numeric(gsub(",", "", Sessions)),
+    `Conversion Rate (%)` = gsub("<", "", `Conversion Rate (%)`),         # Remove < symbol
+    `Conversion Rate (%)` = as.numeric(gsub("%", "", `Conversion Rate (%)`)),
+    `Bounce Rate` = as.numeric(gsub("%", "", `Bounce Rate`))
+  )
+```
+
+*Conclusion* : there isn't any errors in this dataset
+
+```{r}
+str(df_clean_task_one)
+```
+
+## Task 1.A The top three traffic and the revenue of each year
+
+```{r}
+
+```
+
+Getting the top 3 of each year by Sessions
+
+```{r}
+top3_dual <- df_clean_task_one %>%
+  group_by(Year, `Source / Medium`) %>%
+  summarise(
+    Total_Sessions = sum(Sessions, na.rm = TRUE),
+    Total_Revenue = sum(Revenue, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  group_by(Year) %>%
+  slice_max(Total_Sessions, n = 3) %>%
+  ungroup()
+```
+
+```{r}
+top3_dual <- df_clean_task_one %>%
+  group_by(Year, `Source / Medium`) %>%
+  summarise(
+    Total_Sessions = sum(Sessions, na.rm = TRUE),
+    Total_Revenue = sum(Revenue, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  group_by(Year) %>%
+  slice_max(Total_Sessions, n = 3) %>%
+  ungroup()
+```
+
+```{r}
+# Plot
+top3_sessions <- top3_dual %>%
+  select(Year, `Source / Medium`, Total_Sessions, Total_Revenue)
+
+ggplot(top3_sessions, aes(x = `Source / Medium`, y = Total_Sessions, fill = `Source / Medium`)) +
+  geom_col(show.legend = FALSE) +
+  geom_text(aes(label = scales::comma(Total_Revenue)), 
+            vjust = -0.5, size = 3.5) +
+  facet_wrap(~ Year) +
+  labs(
+    title = "Top 3 Traffic Sources per Year by Sessions (with Revenue Labels)",
+    x = "Source / Medium",
+    y = "Total Sessions"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+**Comment:** Based on the analysis, the top three sources of website traffic for the years 2019 and 2020 were identified according to the number of sessions.
+
+In 2019, the leading traffic sources were A, B, and E.
+
+However, in 2020, there was a shift where C have been replaced by E, with Source A standing out significantly in terms of both traffic volume and revenue generation.
+
+Although all three sources contributed to the website’s performance, Source A stood out significantly with the highest number of sessions and the greatest revenue in both years. In contrast, Sources B and C produced relatively lower figures.
+
+This indicates that Source A was the most effective traffic source overall — both in attracting visitors and generating revenue.
+
+## Task 1.B
+
+2 case 1 la coi cot source lam device 2 Make up data Chia lam 2 loai Mobile + Desktop \### Task 1B Case 1
+
+giả định mỗi hàng source / medium là 1 device
+
+```{r}
+conversion_by_device <- df_clean_task_one %>%
+  group_by(Year, `Month of the year`, `Source / Medium`) %>%
+  summarise(
+    Conversion = `Conversion Rate (%)`,
+    Total_Sessions = sum(Sessions, na.rm = TRUE),
+    Total_Revenue = sum(Revenue, na.rm = TRUE),
+    .groups = "drop"
+  )
+```
+
+```{r}
+kable(conversion_by_device, caption = "Conversion Rate by 'Device' (Source/Medium) per Month and Year")
+```
+
+Quá nhiều record, xem kh nổi -\> dùng cách khác thôi
+
+```{r}
+ggplot(conversion_by_device, aes(x = factor(`Month of the year`), y = Conversion, fill = `Source / Medium`)) +
+  geom_col(position = "dodge") +
+  facet_wrap(~ Year) +
+  labs(
+    title = "Average Conversion Rate by Device per Month and Year",
+    x = "Month",
+    y = "Conversion Rate (%)",
+    fill = "Device"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 0))
+```
+
+Convert the numberic month to words for easier visualization Also check if the proposion rate is too biass to one side, make sure it's acceptable simulate
+
+```{r}
+device_2019 <- filter(conversion_by_device, Year == 2019)
+device_2020 <- filter(conversion_by_device, Year == 2020)
+
+kable(device_2019, caption = "Conversion Rate by Device - 2019")
+kable(device_2020, caption = "Conversion Rate by Device - 2020")
+
+ggplot(device_2019, aes(x = factor(`Month of the year`), y = Conversion, fill = `Source / Medium`)) +
+  geom_col(position = "dodge") +
+  labs(
+    title = "2019: Avg. Conversion Rate by Device per Month",
+    x = "Month",
+    y = "Conversion Rate (%)"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 0))
+
+ggplot(device_2020, aes(x = factor(`Month of the year`), y = Conversion, fill = `Source / Medium`)) +
+  geom_col(position = "dodge") +
+  labs(
+    title = "2020: Avg. Conversion Rate by Device per Month",
+    x = "Month",
+    y = "Conversion Rate (%)"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 0))
+```
+
+**Conclusion** Case 1: Too many records, it's not visualizable
+
+### Task 1B Case 2:
+
+In case 2, the data of devices will be make up, simulately analysis 2 type of devices will be choose to be representative for the device, being "Desktop" and "Mobile" In order to figure out which row will on be half of the device, there's a few key to check 1. Mobile user are likely to have high bounce rate while desktop user are mostly stay longer This can make the 2 device be chosen from bounce rate and Duration
+
+2.  Mobile user have "?" chance to have "?" conversion rate due to the convinite ?
+
+    Make up data to see which will present desktop, and which will present mobile
+
+```{r}
+df_device_simulated <- df_clean_task_one %>%
+  mutate(
+    mobile_score = 
+      ifelse(`Bounce Rate` >= 58, 1, 0) +
+      ifelse(`Avg. Session Duration` <= 60, 1, 0) +
+      ifelse(`Conversion Rate (%)` <= 2, 1, 0),
+    
+    desktop_score = 
+      ifelse(`Bounce Rate` <= 50, 1, 0) +
+      ifelse(`Avg. Session Duration` >= 120, 1, 0) +
+      ifelse(`Conversion Rate (%)` >= 3, 1, 0),
+    
+    Device = case_when(
+      mobile_score >= 2 ~ "Mobile",
+      desktop_score >= 2 ~ "Desktop",
+      TRUE ~ "Desktop"  # default if unclear
+    )
+  )
+```
+
+```{r}
+# set Month from  numberic to words
+df_device_simulated$Month <- factor(df_device_simulated$`Month of the year`,
+                                    levels = 1:12,
+                                    labels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                                               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"),
+                                    ordered = TRUE)
+device_summary_direct <- df_device_simulated %>%
+  group_by(Year, Month, Device) %>%
+  summarise(
+    Conversion = `Conversion Rate (%)`,
+    .groups = "drop"
+  )
+
+df_device_simulated %>%
+  group_by(Month, Device) %>%
+  summarise(Count = n(), .groups = "drop") %>%
+  group_by(Month) %>%
+  mutate(Proportion = Count / sum(Count)) %>%
+  ggplot(aes(x = Month, y = Proportion, fill = Device)) +
+  geom_col(position = "stack") +
+  labs(
+    title = "Proportion of Device Types per Month",
+    x = "Month", y = "Proportion", fill = "Device"
+  ) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  theme_minimal()
+
+```
+
+TABLE
+
+```{r}
+df_table <- df_device_simulated %>%
+  select(Year, `Month of the year`, Device, `Conversion Rate (%)`, Sessions, Revenue) %>%
+  arrange(Year, `Month of the year`, Device)
+
+kable(df_table, caption = "Conversion Rate by Device, Year, and Month (Raw Values)")
+```
+
+```{r}
+ggplot(df_device_simulated, aes(x = Month, y = `Conversion Rate (%)`, color = Device)) +
+  geom_jitter(width = 0.2, height = 0, alpha = 0.6, size = 2) +
+  facet_wrap(~ Year) +
+  labs(
+    title = "Monthly Conversion Rate by Device (Original Dataset)",
+    x = "Month",
+    y = "Conversion Rate (%)",
+    color = "Device"
+  ) +
+  scale_y_continuous(labels = function(x) paste0(x, "%")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+table(df_device_simulated$Device)
+prop.table(table(df_device_simulated$Device)) * 100  # See % split
+
+
+```
+
+```{r}
+ggplot(df_device_simulated, aes(x = Month, y = `Conversion Rate (%)`, color = Device, group = Device)) +
+  geom_line(size = 1) +
+  geom_point(size = 2, alpha = 0.7) +
+  facet_wrap(~ Year) +
+  labs(
+    title = "Monthly Conversion Rate by Device",
+    x = "Month",
+    y = "Conversion Rate (%)",
+    color = "Device"
+  ) +
+  scale_y_continuous(labels = function(x) paste0(x, "%")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(df_device_simulated, aes(x = Month, y = `Conversion Rate (%)`, fill = Device)) +
+  geom_col(position = "dodge") +
+  facet_wrap(~ Year) +
+  labs(
+    title = "Monthly Conversion Rate by Device (Original Dataset)",
+    x = "Month",
+    y = "Conversion Rate (%)",
+    fill = "Device"
+  ) +
+  scale_y_continuous(labels = function(x) paste0(x, "%")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+**Conclusion** It is clear from the data that desktop users tend to have consistently higher conversion rates, while mobile users appear more scattered and typically perform at lower levels. This difference highlights an opportunity to optimize the mobile experience or shift more advertising effort toward high-converting desktop channels.
+
+## Task 1.C Produce an analysis to show the relationship between Bounce rate, Conversion, Transaction, and Revenue. Comments on your findings in terms of how each of the three relates to each other
+
+To do this, using correlation to see the relationship of the field There is Bounce rate - conversion rate, transaction - revenue, bounce rate - transaction Create new table for relation ship data only
+
+```{r}
+df_relationship <- df_clean_task_one %>%
+  select(`Bounce Rate`, `Conversion Rate (%)`, Revenue, Transactions)
+
+cor_matrix <- round(cor(df_relationship, use = "complete.obs"), 2)
+
+cor_df <- as.data.frame(cor_matrix) %>%
+  mutate(Var1 = rownames(.)) %>%
+  pivot_longer(cols = -Var1, names_to = "Var2", values_to = "Correlation")
+
+cor_matrix
+cor_df
+```
+
+```{r}
+ggplot(cor_df, aes(x = Var1, y = Var2, fill = Correlation)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = Correlation), color = "black", size = 4) +
+  scale_fill_gradient2(low = "red", mid = "white", high = "green",
+                       midpoint = 0, limit = c(-1, 1), space = "Lab",
+                       name = "Correlation") +
+  labs(title = "Heatmap: Bounce Rate vs Conversion, Transactions, Revenue",
+       x = "", y = "") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+##### Transaction vs Revenue
+
+**Comment** WE can clearly see that the relationship between Transactions and revenue is a positive correlation relationship. As the more transactions were made, the more revenue it provide
+
+```{r}
+ggplot(df_clean_task_one, aes(x = Transactions, y = Revenue)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, color = "green") +
+  labs(title = "Transaction vs Revenue",
+       x = "Transaction", y = "Revenue") +
+  theme_minimal()
+```
+
+##### Conversion rate vs Revenue & Transaction This is the positive correlation relaionship, where the more user do what the website wanted, following the website flow will lead to it's business purpose, which increase the transaction and revenue
+
+```{r}
+ggplot(df_clean_task_one, aes(x = `Conversion Rate (%)`, y = Revenue)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, color = "green") +
+  labs(title = "Conversion Rate (%) vs Revenue",
+       x = "Conversion Rate (%)", y = "Revenue") +
+  theme_minimal()
+
+ggplot(df_clean_task_one, aes(x = `Conversion Rate (%)`, y = Transactions)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, color = "green") +
+  labs(title = "Conversion Rate (%) vs Transactions",
+       x = "Conversion Rate (%)", y = "Transactions") +
+  theme_minimal()
+```
+
+### Bounce Rate vs Conversion Rate
+
+As for the Bounce Rate and conversion rate, its quite a negative corrolation relationship which is also understandable since if they left the website so quickly, they wouldn't do anything else with the website
+
+```{r}
+ggplot(df_clean_task_one, aes(x = `Bounce Rate`, y = `Conversion Rate (%)`)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(title = "Bounce Rate vs Conversion Rate",
+       x = "Bounce Rate (%)", y = "Conversion Rate (%)") +
+  theme_minimal()
+```
+
+```{r}
+ggplot(df_clean_task_one, aes(x = `Bounce Rate`, y = Transactions)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = TRUE, color = "blue") +
+  labs(title = "Bounce Rate vs Transactions",
+       x = "Bounce Rate (%)", y = "Transactions") +
+  theme_minimal()
+
+ggplot(df_clean_task_one, aes(x = `Bounce Rate`, y = Revenue)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  labs(title = "Bounce Rate vs Revenue",
+       x = "Bounce Rate (%)", y = "Revenue") +
+  theme_minimal()
+```
