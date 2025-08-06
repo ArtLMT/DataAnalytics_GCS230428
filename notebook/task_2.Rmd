@@ -1,0 +1,302 @@
+---
+title: "task_2"
+author: "LMT"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# TASK 2
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(skimr)
+```
+
+# 1. Reading Data
+
+```{r}
+df_task2 <- read_csv("../data/diabetes.csv")
+df_task2
+```
+
+## 1.1 Dimension of the Data
+```{r}
+cat("The dimension of dataset: number of columns", ncol(df_task2), "number of rows: ", nrow((df_task2)))
+```
+
+## 1.2 Structure of the dataset
+
+```{r}
+str(df_task2) # Structure of dataset
+summary(df_task2)
+```
+
+```{r}
+sapply(df_task2,class)
+```
+# Before cleaning the dataset
+
+```{r}
+# Summary statistics
+descriptive_stats <- df_task2 %>%
+  summarise(across(
+    everything(),
+    list(
+      mean = ~mean(.x, na.rm = TRUE),
+      median = ~median(.x, na.rm = TRUE),
+      sd = ~sd(.x, na.rm = TRUE),
+      var = ~var(.x, na.rm = TRUE)
+    )
+  ))
+
+# Display the table
+kable(t(descriptive_stats), caption = "Descriptive Statistics (Before Cleaning)")
+descriptive_stats
+
+# Plot histogram for each variable
+numeric_cols <- names(df_task2)[sapply(df_task2, is.numeric)]
+
+for (col in numeric_cols) {
+  print(
+    ggplot(df_task2, aes_string(x = col)) +
+      geom_histogram(bins = 15, fill = "blue", color = "black", alpha = 0.7) +
+      labs(title = paste("Histogram of", col, "before cleaning"),
+           x = col,
+           y = "Count") +
+      theme_minimal()
+  )
+}
+
+for (col in numeric_cols) {
+  p <- ggplot(df_task2, aes_string(x = col)) +
+    geom_histogram(bins = 15, fill = "blue", color = "black", alpha = 0.7) +
+    labs(title = paste("Histogram of", col, "before cleaning"),
+         x = col,
+         y = "Count") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 7))
+
+  plot_list[[col]] <- p
+  print(p)
+}
+
+grid.arrange(grobs = plot_list[1:4], ncol = 2)
+grid.arrange(grobs = plot_list[5:8], ncol = 2)
+```
+
+```{r}
+# Calculate descriptive statistics
+desc_stats <- df_task2 %>%
+  summarise(across(.cols = everything(), 
+                   .fns = list(
+                     Mean = ~mean(.x, na.rm = TRUE),
+                     Median = ~median(.x, na.rm = TRUE),
+                     SD = ~sd(.x, na.rm = TRUE),
+                     Variance = ~var(.x, na.rm = TRUE)
+                   ),
+                   .names = "{.col}_{.fn}")) %>%
+  pivot_longer(cols = everything(),
+               names_to = c("Variable", "Statistic"),
+               names_sep = "_",
+               values_to = "Value") %>%
+  pivot_wider(names_from = Statistic, values_from = Value)
+
+# Display the table
+kable(desc_stats, caption = "Descriptive Statistics of Diabetes Dataset before cleanin", digits = 2)
+```
+
+# 2. Cleaning the dataset
+## 2.1 Missing value
+From the metadata in the Pima info file, some values should not be zero, because it’s biologically impossible.
+Those include
+Glucose
+BloodPressure
+SkinThickness	
+Insulin	
+BMI
+```{r}
+# Columns where 0 is biologically impossible
+zero_na_columns <- c("Glucose", "BloodPressure", "SkinThickness", "Insulin", "BMI")
+
+# Replace 0s with NA in those columns
+df_clean <- df_task2
+df_clean[zero_na_columns] <- lapply(df_clean[zero_na_columns], function(x) ifelse(x == 0, NA, x))
+
+# Check number of missing values (errors identified)
+colSums(is.na(df_clean))
+
+```
+
+```{r}
+df_mean_imputed <- df_clean  # make a copy
+
+# Loop through the columns and fill NA with mean
+for (col in zero_na_columns) {
+  mean_value <- mean(df_mean_imputed[[col]], na.rm = TRUE)
+  df_mean_imputed[[col]][is.na(df_mean_imputed[[col]])] <- mean_value
+}
+
+```
+
+## 1.2 duplicate value
+
+```{r}
+any(duplicated(df))
+```
+
+# After cleaning
+```{r}
+
+# Summary statistics
+descriptive_stats <- df_mean_imputed %>%
+  summarise(across(
+    everything(),
+    list(mean = ~mean(.x, na.rm = TRUE),
+         median = ~median(.x, na.rm = TRUE),
+         sd = ~sd(.x, na.rm = TRUE),
+         var = ~var(.x, na.rm = TRUE))
+  ))
+
+# Display the table
+kable(t(descriptive_stats), caption = "Descriptive Statistics (after Cleaning)")
+
+# Plot histogram for each variable
+numeric_cols <- names(df_mean_imputed)[sapply(df_mean_imputed, is.numeric)]
+
+for (col in numeric_cols) {
+  print(
+    ggplot(df_mean_imputed, aes_string(x = col)) +
+      geom_histogram(bins = 15, fill = "blue", color = "black", alpha = 0.7) +
+      labs(title = paste("Histogram of", col, "before cleaning"),
+           x = col,
+           y = "Count") +
+      theme_minimal()
+  )
+}
+```
+
+# After cleaning compare with the before cleaning
+```{r}
+# Columns where 0 is biologically impossible
+zero_na_columns <- c("Glucose", "BloodPressure", "SkinThickness", "Insulin", "BMI")
+
+# Replace 0s with NA
+df_clean <- df
+df_clean[zero_na_columns] <- lapply(df_clean[zero_na_columns], function(x) ifelse(x == 0, NA, x))
+
+# Check number of missing values
+cat("Missing values (zeros treated as NA for Glucose, BloodPressure, SkinThickness, Insulin, BMI)")
+cat(" ")
+print(colSums(is.na(df_clean)))
+
+# Impute using mixed methods (mean and median only)
+df_imputed <- df_clean
+```
+
+```{r}
+# Mean imputation for Glucose and BloodPressure (symmetric distributions)
+for (col in c("Glucose", "BloodPressure")) {
+  mean_value <- mean(df_imputed[[col]], na.rm = TRUE)
+  df_imputed[[col]][is.na(df_imputed[[col]])] <- mean_value
+}
+
+# Median imputation for SkinThickness, Insulin, and BMI (skewed or potentially correlated distributions)
+for (col in c("SkinThickness", "Insulin", "BMI")) {
+  median_value <- median(df_imputed[[col]], na.rm = TRUE)
+  df_imputed[[col]][is.na(df_imputed[[col]])] <- median_value
+}
+```
+
+
+```{r}
+# Check for zero values in Insulin after imputation
+zero_count_insulin <- sum(df_imputed$Insulin == 0, na.rm = TRUE)
+cat("Number of zero values in Insulin after imputation:", zero_count_insulin, "\n")
+```
+
+
+```{r}
+# Descriptive statistics after cleaning
+descriptive_stats_clean <- df_imputed %>%
+  summarise(across(
+    everything(),
+    list(mean = ~mean(.x, na.rm = TRUE),
+         median = ~median(.x, na.rm = TRUE),
+         sd = ~sd(.x, na.rm = TRUE),
+         var = ~var(.x, na.rm = TRUE))
+  ))
+
+kable(descriptive_stats_clean, caption = "Descriptive Statistics After Cleaning")
+
+# Plot histograms for imputed data
+numeric_cols <- names(df_imputed)[sapply(df_imputed, is.numeric)]
+for (col in numeric_cols) {
+  print(
+    ggplot(df_imputed, aes_string(x = col)) +
+      geom_histogram(bins = 15, fill = "blue", color = "black", alpha = 0.7) +
+      labs(title = paste("Histogram of", col, "After Cleaning"),
+           x = col,
+           y = "Count") +
+      theme_minimal()
+  )
+}
+```
+
+```{r}
+
+# Define numeric columns
+numeric_cols <- names(df_imputed)[sapply(df_imputed, is.numeric)]
+
+# 1. Generate small overview histograms
+plot_list <- list()
+for (col in numeric_cols) {
+  p <- ggplot(df, aes_string(x = col)) +
+    geom_histogram(bins = 15, fill = "blue", color = "black", alpha = 0.7) +
+    labs(title = paste("Before:", col), x = col, y = "Count") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 7)) # Small title for overview
+  plot_list[[col]] <- p
+}
+
+# Arrange small histograms in a grid
+grid.arrange(grobs = plot_list[1:4], ncol = 2, top = "Small Overview: Before Cleaning")
+if (length(numeric_cols) > 4) {
+  grid.arrange(grobs = plot_list[5:length(numeric_cols)], ncol = 2, top = "Small Overview: Before Cleaning (cont.)")
+}
+
+# 2. Generate side-by-side comparison histograms
+for (col in numeric_cols) {
+  # Before cleaning
+  p_before <- ggplot(df, aes_string(x = col)) +
+    geom_histogram(bins = 15, fill = "lightgray", color = "black", alpha = 0.7) +
+    labs(title = paste("Before Data", " Cleaning"), x = col, y = "Count") +
+    theme_minimal()
+
+  # After cleaning
+  p_after <- ggplot(df_imputed, aes_string(x = col)) +
+    geom_histogram(bins = 15, fill = "blue", color = "black", alpha = 0.7) +
+    labs(title = paste("After Data", " Cleaning"), x = col, y = "Count") +
+    theme_minimal()
+
+  # Arrange side-by-side
+  grid.arrange(p_before, p_after, ncol = 2, 
+               top = paste("Histogram of ", col, " Before and after cleaning"))
+}
+```
+```{r}
+p_after <- ggplot(df_imputed, aes_string(x = col)) +
+  geom_histogram(aes(y = ..count..), bins = 15, fill = "blue", color = "black", alpha = 0.7) +
+  stat_bin(bins = 15, geom = "text", aes(label = ..count..), vjust = -0.5, size = 3.5) +
+  labs(title = paste("After Data", "Cleaning"), x = col, y = "Count") +
+  theme_minimal()
+```
+
+```{r}
+sum(df_imputed$Insulin < 20)
+```

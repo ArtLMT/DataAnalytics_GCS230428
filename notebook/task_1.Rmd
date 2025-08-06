@@ -81,10 +81,7 @@ str(df_clean_task_one)
 
 ## Task 1.A The top three traffic and the revenue of each year
 
-```{r}
-
-```
-
+### Top 3 source by Session
 Getting the top 3 of each year by Sessions
 
 ```{r}
@@ -132,6 +129,62 @@ ggplot(top3_sessions, aes(x = `Source / Medium`, y = Total_Sessions, fill = `Sou
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ```
+### Top 3 source by revenue:
+```{r}
+top3_dual <- df_clean_task_one %>%
+  group_by(Year, `Source / Medium`) %>%
+  summarise(
+    Total_Sessions = sum(Sessions, na.rm = TRUE),
+    Total_Revenue = sum(Revenue, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  group_by(Year) %>%
+  slice_max(Total_Revenue, n = 3) %>%
+  ungroup()
+
+top3_revenue <- top3_dual %>%
+  select(Year, `Source / Medium`, Total_Sessions, Total_Revenue)
+
+ggplot(top3_revenue , aes(x = `Source / Medium`, y = Total_Sessions, fill = `Source / Medium`)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ Year) +
+  geom_text(aes(label = scales::comma(Total_Revenue)), 
+            vjust = -0.5, size = 3.5) +
+  labs(
+    title = "Top 3 Traffic Sources per Year by Session (with Revenue labels)",
+    x = "Source / Medium",
+    y = "Total Sessions"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+### Top 3 revenue of all time
+```{r}
+top3_dual <- df_clean_task_one %>%
+  group_by(`Source / Medium`) %>%
+  summarise(
+    Total_Sessions = sum(Sessions, na.rm = TRUE),
+    Total_Revenue = sum(Revenue, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  slice_max(Total_Revenue, n = 3) %>%
+  ungroup()
+
+top3_revenue <- top3_dual %>%
+  select(`Source / Medium`, Total_Sessions, Total_Revenue)
+
+ggplot(top3_revenue , aes(x = `Source / Medium`, y = Total_Revenue, fill = `Source / Medium`)) +
+  geom_col(show.legend = FALSE) +
+  geom_text(aes(label = scales::comma(Total_Revenue)), 
+            vjust = -0.5, size = 3.5) +
+  labs(
+    title = "Top 3 Traffic Sources by Session (with Revenue labels)",
+    x = "Source / Medium",
+    y = "Total Session"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
 
 **Comment:** Based on the analysis, the top three sources of website traffic for the years 2019 and 2020 were identified according to the number of sessions.
 
@@ -164,7 +217,7 @@ conversion_by_device <- df_clean_task_one %>%
 kable(conversion_by_device, caption = "Conversion Rate by 'Device' (Source/Medium) per Month and Year")
 ```
 
-Quá nhiều record, xem kh nổi -\> dùng cách khác thôi
+Quá nhiều record, xem kh nổi -> dùng cách khác thôi
 
 ```{r}
 ggplot(conversion_by_device, aes(x = factor(`Month of the year`), y = Conversion, fill = `Source / Medium`)) +
@@ -178,8 +231,71 @@ ggplot(conversion_by_device, aes(x = factor(`Month of the year`), y = Conversion
   ) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 0))
+
+# Step 2: Plot - Horizontal Bar Chart
+ggplot(df_clean_task_one, aes(x = `Conversion Rate (%)`, 
+                     y = `Source / Medium`, 
+                     fill = `Month of the year`)) +
+  geom_col(position = "dodge") +
+  labs(title = "Conversion Rate by Source and Month",
+       x = "Conversion Rate",
+       y = "Source of traffic") +
+  theme_minimal()
+
+```
+```{r}
+ggplot(df_clean_task_one, aes(x = `Conversion Rate (%)`, 
+                     y = `Source / Medium`, 
+                     fill = `Month of the year`)) +
+  geom_col(position = "dodge") +
+  labs(title = "Conversion Rate by Source and Month",
+       x = "Conversion Rate",
+       y = "Source of traffic") +
+  theme_minimal()
 ```
 
+```{r}
+# STEP 1: Find devices that appear in all 12 months FOR A GIVEN YEAR
+month_coverage <- df_clean_task_one %>%
+  group_by(`Source / Medium`) %>%
+  summarise(Month_Count = n_distinct(`Month of the year`), .groups = 'drop') %>%
+  filter(Month_Count == 12)
+
+month_coverage
+
+# STEP 2: Join back to get full data only for those device-year combos
+df_filtered <- df %>%
+month_coverage <- df %>%
+  group_by(`Source / Medium`) %>%
+  summarise(Month_Count = n_distinct(`Month of the year`), .groups = "drop") %>%
+  filter(Month_Count == 12)
+
+df_filtered %>%
+  arrange(`Source / Medium`, Year, as.integer(`Month of the year`)) %>%
+  select(`Source / Medium`, Year, `Month of the year`, `Conversion Rate (%)`)
+
+# STEP 2: Filter original data to just these top devices
+df_filtered <- df %>%
+  semi_join(month_coverage, by = "Source / Medium")
+
+# STEP 3: Make sure Month is ordered correctly
+df_filtered$`Month of the year` <- factor(df_filtered$`Month of the year`, levels = 1:12)
+
+# STEP 4: Plot
+ggplot(df_filtered, aes(x = `Month of the year`,
+                        y = `Conversion Rate (%)`,
+                        color = `Source / Medium`,
+                        group = `Source / Medium`)) +
+  geom_line(size = 1.1) +
+  geom_point(size = 2) +
+  facet_wrap(~ Year) +
+  labs(title = "Conversion Rate by Device, Month, and Year",
+       x = "Month",
+       y = "Conversion Rate (%)",
+       color = "Device") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
 Convert the numberic month to words for easier visualization Also check if the proposion rate is too biass to one side, make sure it's acceptable simulate
 
 ```{r}
@@ -212,126 +328,7 @@ ggplot(device_2020, aes(x = factor(`Month of the year`), y = Conversion, fill = 
 
 **Conclusion** Case 1: Too many records, it's not visualizable
 
-### Task 1B Case 2:
 
-In case 2, the data of devices will be make up, simulately analysis 2 type of devices will be choose to be representative for the device, being "Desktop" and "Mobile" In order to figure out which row will on be half of the device, there's a few key to check 1. Mobile user are likely to have high bounce rate while desktop user are mostly stay longer This can make the 2 device be chosen from bounce rate and Duration
-
-2.  Mobile user have "?" chance to have "?" conversion rate due to the convinite ?
-
-    Make up data to see which will present desktop, and which will present mobile
-
-```{r}
-df_device_simulated <- df_clean_task_one %>%
-  mutate(
-    mobile_score = 
-      ifelse(`Bounce Rate` >= 58, 1, 0) +
-      ifelse(`Avg. Session Duration` <= 60, 1, 0) +
-      ifelse(`Conversion Rate (%)` <= 2, 1, 0),
-    
-    desktop_score = 
-      ifelse(`Bounce Rate` <= 50, 1, 0) +
-      ifelse(`Avg. Session Duration` >= 120, 1, 0) +
-      ifelse(`Conversion Rate (%)` >= 3, 1, 0),
-    
-    Device = case_when(
-      mobile_score >= 2 ~ "Mobile",
-      desktop_score >= 2 ~ "Desktop",
-      TRUE ~ "Desktop"  # default if unclear
-    )
-  )
-```
-
-```{r}
-# set Month from  numberic to words
-df_device_simulated$Month <- factor(df_device_simulated$`Month of the year`,
-                                    levels = 1:12,
-                                    labels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                                               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"),
-                                    ordered = TRUE)
-device_summary_direct <- df_device_simulated %>%
-  group_by(Year, Month, Device) %>%
-  summarise(
-    Conversion = `Conversion Rate (%)`,
-    .groups = "drop"
-  )
-
-df_device_simulated %>%
-  group_by(Month, Device) %>%
-  summarise(Count = n(), .groups = "drop") %>%
-  group_by(Month) %>%
-  mutate(Proportion = Count / sum(Count)) %>%
-  ggplot(aes(x = Month, y = Proportion, fill = Device)) +
-  geom_col(position = "stack") +
-  labs(
-    title = "Proportion of Device Types per Month",
-    x = "Month", y = "Proportion", fill = "Device"
-  ) +
-  scale_y_continuous(labels = scales::percent_format()) +
-  theme_minimal()
-
-```
-
-TABLE
-
-```{r}
-df_table <- df_device_simulated %>%
-  select(Year, `Month of the year`, Device, `Conversion Rate (%)`, Sessions, Revenue) %>%
-  arrange(Year, `Month of the year`, Device)
-
-kable(df_table, caption = "Conversion Rate by Device, Year, and Month (Raw Values)")
-```
-
-```{r}
-ggplot(df_device_simulated, aes(x = Month, y = `Conversion Rate (%)`, color = Device)) +
-  geom_jitter(width = 0.2, height = 0, alpha = 0.6, size = 2) +
-  facet_wrap(~ Year) +
-  labs(
-    title = "Monthly Conversion Rate by Device (Original Dataset)",
-    x = "Month",
-    y = "Conversion Rate (%)",
-    color = "Device"
-  ) +
-  scale_y_continuous(labels = function(x) paste0(x, "%")) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-table(df_device_simulated$Device)
-prop.table(table(df_device_simulated$Device)) * 100  # See % split
-
-
-```
-
-```{r}
-ggplot(df_device_simulated, aes(x = Month, y = `Conversion Rate (%)`, color = Device, group = Device)) +
-  geom_line(size = 1) +
-  geom_point(size = 2, alpha = 0.7) +
-  facet_wrap(~ Year) +
-  labs(
-    title = "Monthly Conversion Rate by Device",
-    x = "Month",
-    y = "Conversion Rate (%)",
-    color = "Device"
-  ) +
-  scale_y_continuous(labels = function(x) paste0(x, "%")) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-ggplot(df_device_simulated, aes(x = Month, y = `Conversion Rate (%)`, fill = Device)) +
-  geom_col(position = "dodge") +
-  facet_wrap(~ Year) +
-  labs(
-    title = "Monthly Conversion Rate by Device (Original Dataset)",
-    x = "Month",
-    y = "Conversion Rate (%)",
-    fill = "Device"
-  ) +
-  scale_y_continuous(labels = function(x) paste0(x, "%")) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-```
-
-**Conclusion** It is clear from the data that desktop users tend to have consistently higher conversion rates, while mobile users appear more scattered and typically perform at lower levels. This difference highlights an opportunity to optimize the mobile experience or shift more advertising effort toward high-converting desktop channels.
 
 ## Task 1.C Produce an analysis to show the relationship between Bounce rate, Conversion, Transaction, and Revenue. Comments on your findings in terms of how each of the three relates to each other
 
