@@ -62,32 +62,6 @@ descriptive_stats
 # Plot histogram for each variable
 numeric_cols <- names(df_task2)[sapply(df_task2, is.numeric)]
 
-for (col in numeric_cols) {
-  print(
-    ggplot(df_task2, aes_string(x = col)) +
-      geom_histogram(bins = 15, fill = "blue", color = "black", alpha = 0.7) +
-      labs(title = paste("Histogram of", col, "before cleaning"),
-           x = col,
-           y = "Count") +
-      theme_minimal()
-  )
-}
-
-for (col in numeric_cols) {
-  p <- ggplot(df_task2, aes_string(x = col)) +
-    geom_histogram(bins = 15, fill = "blue", color = "black", alpha = 0.7) +
-    labs(title = paste("Histogram of", col, "before cleaning"),
-         x = col,
-         y = "Count") +
-    theme_minimal() +
-    theme(plot.title = element_text(size = 7))
-
-  plot_list[[col]] <- p
-  print(p)
-}
-
-grid.arrange(grobs = plot_list[1:4], ncol = 2)
-grid.arrange(grobs = plot_list[5:8], ncol = 2)
 ```
 
 ```{r}
@@ -134,8 +108,7 @@ colSums(is.na(df_clean))
 ```
 
 ```{r}
-df_mean_imputed <- df_clean  # make a copy
-
+df_mean_imputed <- df_clean  
 # Loop through the columns and fill NA with mean
 for (col in zero_na_columns) {
   mean_value <- mean(df_mean_imputed[[col]], na.rm = TRUE)
@@ -147,7 +120,7 @@ for (col in zero_na_columns) {
 ## 1.2 duplicate value
 
 ```{r}
-any(duplicated(df))
+any(duplicated(df_task2))
 ```
 
 # After cleaning
@@ -187,7 +160,7 @@ for (col in numeric_cols) {
 zero_na_columns <- c("Glucose", "BloodPressure", "SkinThickness", "Insulin", "BMI")
 
 # Replace 0s with NA
-df_clean <- df
+df_clean <- df_task2
 df_clean[zero_na_columns] <- lapply(df_clean[zero_na_columns], function(x) ifelse(x == 0, NA, x))
 
 # Check number of missing values
@@ -248,47 +221,6 @@ for (col in numeric_cols) {
 }
 ```
 
-```{r}
-
-# Define numeric columns
-numeric_cols <- names(df_imputed)[sapply(df_imputed, is.numeric)]
-
-# 1. Generate small overview histograms
-plot_list <- list()
-for (col in numeric_cols) {
-  p <- ggplot(df, aes_string(x = col)) +
-    geom_histogram(bins = 15, fill = "blue", color = "black", alpha = 0.7) +
-    labs(title = paste("Before:", col), x = col, y = "Count") +
-    theme_minimal() +
-    theme(plot.title = element_text(size = 7)) # Small title for overview
-  plot_list[[col]] <- p
-}
-
-# Arrange small histograms in a grid
-grid.arrange(grobs = plot_list[1:4], ncol = 2, top = "Small Overview: Before Cleaning")
-if (length(numeric_cols) > 4) {
-  grid.arrange(grobs = plot_list[5:length(numeric_cols)], ncol = 2, top = "Small Overview: Before Cleaning (cont.)")
-}
-
-# 2. Generate side-by-side comparison histograms
-for (col in numeric_cols) {
-  # Before cleaning
-  p_before <- ggplot(df, aes_string(x = col)) +
-    geom_histogram(bins = 15, fill = "lightgray", color = "black", alpha = 0.7) +
-    labs(title = paste("Before Data", " Cleaning"), x = col, y = "Count") +
-    theme_minimal()
-
-  # After cleaning
-  p_after <- ggplot(df_imputed, aes_string(x = col)) +
-    geom_histogram(bins = 15, fill = "blue", color = "black", alpha = 0.7) +
-    labs(title = paste("After Data", " Cleaning"), x = col, y = "Count") +
-    theme_minimal()
-
-  # Arrange side-by-side
-  grid.arrange(p_before, p_after, ncol = 2, 
-               top = paste("Histogram of ", col, " Before and after cleaning"))
-}
-```
 ```{r}
 p_after <- ggplot(df_imputed, aes_string(x = col)) +
   geom_histogram(aes(y = ..count..), bins = 15, fill = "blue", color = "black", alpha = 0.7) +
