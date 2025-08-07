@@ -16,6 +16,7 @@ library(skimr)
 
 library(knitr) # For better table
 library(lubridate) # Task 1B test
+library(scales)
 ```
 
 # 1. Reading data
@@ -117,13 +118,26 @@ top3_sessions <- top3_dual %>%
 
 ggplot(top3_sessions, aes(x = `Source / Medium`, y = Total_Sessions, fill = `Source / Medium`)) +
   geom_col(show.legend = FALSE) +
-  geom_text(aes(label = scales::comma(Total_Revenue)), 
+  geom_text(aes(label = scales::comma(Total_Sessions)), 
             vjust = -0.5, size = 3.5) +
   facet_wrap(~ Year) +
   labs(
-    title = "Top 3 Traffic Sources per Year by Sessions (with Revenue Labels)",
+    title = "Top 3 Traffic Sources per Year by Sessions",
     x = "Source / Medium",
     y = "Total Sessions"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(top3_sessions, aes(x = `Source / Medium`, y = Total_Revenue, fill = `Source / Medium`)) +
+  geom_col(show.legend = FALSE) +
+  geom_text(aes(label = scales::comma(Total_Revenue)), # label hien data len
+            vjust = -0.5, size = 3.5) +
+  facet_wrap(~ Year) +
+  labs(
+    title = "Revenue of the Top 3 Traffic Sources per Year by Sessions",
+    x = "Source / Medium",
+    y = "Total Revenue"
   ) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
@@ -145,13 +159,13 @@ top3_dual <- df_clean_task_one %>%
 top3_revenue <- top3_dual %>%
   select(Year, `Source / Medium`, Total_Sessions, Total_Revenue)
 
-ggplot(top3_revenue , aes(x = `Source / Medium`, y = Total_Sessions, fill = `Source / Medium`)) +
+ggplot(top3_revenue , aes(x = `Source / Medium`, y = Total_Revenue, fill = `Source / Medium`)) +
   geom_col(show.legend = FALSE) +
   facet_wrap(~ Year) +
   geom_text(aes(label = scales::comma(Total_Revenue)), 
             vjust = -0.5, size = 3.5) +
   labs(
-    title = "Top 3 Traffic Sources per Year by Session (with Revenue labels)",
+    title = "Top 3 Traffic Sources per Year by Revenue",
     x = "Source / Medium",
     y = "Total Sessions"
   ) +
@@ -160,6 +174,34 @@ ggplot(top3_revenue , aes(x = `Source / Medium`, y = Total_Sessions, fill = `Sou
 ```
 ### Top 3 revenue of all time
 ```{r}
+
+# Step 1: Summarise the data
+summary_table <- df_clean_task_one %>%
+  group_by(`Source / Medium`) %>%
+  summarise(
+    Total_Sessions = sum(Sessions, na.rm = TRUE),
+    Total_Revenue = sum(Revenue, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Step 2: Get top 3 by revenue
+top3_revenue <- summary_table %>%
+  slice_max(Total_Revenue, n = 3) %>%
+  mutate(Type = "Top Revenue")
+
+# Step 3: Get top 3 by sessions
+top3_sessions <- summary_table %>%
+  slice_max(Total_Sessions, n = 3) %>%
+  mutate(Type = "Top Sessions")
+
+# Step 4: Combine both tables
+top3_combined <- bind_rows(top3_revenue, top3_sessions)
+
+# Optional: Remove duplicates (if a source appears in both)
+top3_combined_unique <- top3_combined %>%
+  distinct(`Source / Medium`, .keep_all = TRUE)
+
+
 top3_dual <- df_clean_task_one %>%
   group_by(`Source / Medium`) %>%
   summarise(
@@ -170,31 +212,43 @@ top3_dual <- df_clean_task_one %>%
   slice_max(Total_Revenue, n = 3) %>%
   ungroup()
 
-top3_revenue <- top3_dual %>%
+top3_revenue <- top3_combined_unique %>%
   select(`Source / Medium`, Total_Sessions, Total_Revenue)
 
 ggplot(top3_revenue , aes(x = `Source / Medium`, y = Total_Revenue, fill = `Source / Medium`)) +
   geom_col(show.legend = FALSE) +
+  scale_y_continuous(labels = comma) +
   geom_text(aes(label = scales::comma(Total_Revenue)), 
             vjust = -0.5, size = 3.5) +
   labs(
-    title = "Top 3 Traffic Sources by Session (with Revenue labels)",
+    title = "Top 3 Traffic Sources by Revenue",
     x = "Source / Medium",
-    y = "Total Session"
+    y = "Total Revenue"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(top3_revenue , aes(x = `Source / Medium`, y = Total_Sessions, fill = `Source / Medium`)) +
+  geom_col(show.legend = FALSE) +
+  scale_y_continuous(labels = comma) +
+  geom_text(aes(label = scales::comma(Total_Sessions)), 
+            vjust = -0.5, size = 3.5) +
+  labs(
+    title = "Top 3 Traffic Sources by Session",
+    x = "Source / Medium",
+    y = "Total Sessions"
   ) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-**Comment:** Based on the analysis, the top three sources of website traffic for the years 2019 and 2020 were identified according to the number of sessions.
+**Comment:** Based on the analysis of website traffic data for 2019 and 2020, the top three traffic sources by the number of sessions were identified. In 2019, the leading sources were A, B, and E, while in 2020, Source C replaced E.
+Throughout both years, Source A consistently performed best, generating the highest number of sessions and the most revenue.
+However, while Sources B, C, and E contributed high traffic volumes, they did not generate as much revenue compared to their session counts. This suggests that being in the top 3 traffic sources by sessions does not necessarily mean they bring strong business value.
+A striking finding is Source S: although it brought in a relatively small number of sessions, it generated a disproportionately high amount of revenue. This makes Source S a high-value source despite low traffic.
 
-In 2019, the leading traffic sources were A, B, and E.
+This indicates that Source A was the most effective traffic source overall — both in attracting visitors and generating revenue. Also the S is worth investing more
 
-However, in 2020, there was a shift where C have been replaced by E, with Source A standing out significantly in terms of both traffic volume and revenue generation.
-
-Although all three sources contributed to the website’s performance, Source A stood out significantly with the highest number of sessions and the greatest revenue in both years. In contrast, Sources B and C produced relatively lower figures.
-
-This indicates that Source A was the most effective traffic source overall — both in attracting visitors and generating revenue.
 
 ## Task 1.B
 
@@ -212,12 +266,66 @@ conversion_by_device <- df_clean_task_one %>%
     .groups = "drop"
   )
 ```
+## Task 1.B: Comparative Analysis of Devices and Conversion Rates
+
+This document provides a comparative analysis of the devices used by customers or visitors to access the site and their conversion rates for each year and month, as required for Task 1b. The dataset "Web Analytic_Dataset.csv" is used, where "Source/Medium" is considered as "Devices" per the task specification. The analysis is presented in tables and charts using RStudio and R Markdown.
+
+## Analysis of Devices by Users and New Users
+
+This section analyzes the total users and new users for each device (Source/Medium).
+
+### Table: Total Users and New Users by Device
+
+We summarize the total users and new users per device.
+
+```{r device_summary_table}
+device_summary <- df_clean_task_one %>%
+  group_by(`Source / Medium`) %>%
+  summarise(`Total Users` = sum(Users, na.rm=TRUE),
+            `Total New Users` = sum(`New Users`, na.rm=TRUE))
+
+print(device_summary)
+
+# knitr::kable(device_summary, caption = "Total Users and New Users by Device")
+```
+
+### Chart: Total Users and New Users by Device
+
+A bar chart visualizes the total users and new users of each device
+
+```{r device_summary_chart, fig.width=10, fig.height=6}
+ggplot(device_summary_long, aes(x = `Source / Medium`, y = Count, fill = Type)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.8), width = 0.7) +
+  scale_y_continuous(labels = comma) +
+  scale_fill_manual(values = c("Total Users" = "#1f77b4", "Total New Users" = "#2ca02c")) +
+  labs(
+    title = "Total Users and New Users by Device",
+    subtitle = "Grouped by Source / Medium",
+    x = "Device (Source / Medium)",
+    y = "Number of Users",
+    fill = "User Type"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+    plot.title = element_text(face = "bold", size = 16),
+    plot.subtitle = element_text(size = 12),
+    legend.position = "top"
+  )
+
+```
+
+## Analysis of Conversion Rates by Device, Year, and Month
+
+This section analyzes the conversion rates for each device across each year and month.
+
+### Conversion Rate by Device and Year-Month 
 
 ```{r}
 kable(conversion_by_device, caption = "Conversion Rate by 'Device' (Source/Medium) per Month and Year")
 ```
 
-Quá nhiều record, xem kh nổi -> dùng cách khác thôi
+There were too many record, with 38 different source / medium. THerefore, only the one with 12 record resemble 12 month are chosen to be analysis
 
 ```{r}
 ggplot(conversion_by_device, aes(x = factor(`Month of the year`), y = Conversion, fill = `Source / Medium`)) +
@@ -231,103 +339,113 @@ ggplot(conversion_by_device, aes(x = factor(`Month of the year`), y = Conversion
   ) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 0))
-
-# Step 2: Plot - Horizontal Bar Chart
-ggplot(df_clean_task_one, aes(x = `Conversion Rate (%)`, 
-                     y = `Source / Medium`, 
-                     fill = `Month of the year`)) +
-  geom_col(position = "dodge") +
-  labs(title = "Conversion Rate by Source and Month",
-       x = "Conversion Rate",
-       y = "Source of traffic") +
-  theme_minimal()
-
 ```
-```{r}
-ggplot(df_clean_task_one, aes(x = `Conversion Rate (%)`, 
-                     y = `Source / Medium`, 
-                     fill = `Month of the year`)) +
-  geom_col(position = "dodge") +
-  labs(title = "Conversion Rate by Source and Month",
-       x = "Conversion Rate",
-       y = "Source of traffic") +
-  theme_minimal()
-```
+#### 12 month conversion rate 
 
 ```{r}
-# STEP 1: Find devices that appear in all 12 months FOR A GIVEN YEAR
 month_coverage <- df_clean_task_one %>%
-  group_by(`Source / Medium`) %>%
-  summarise(Month_Count = n_distinct(`Month of the year`), .groups = 'drop') %>%
-  filter(Month_Count == 12)
-
-month_coverage
-
-# STEP 2: Join back to get full data only for those device-year combos
-df_filtered <- df %>%
-month_coverage <- df %>%
   group_by(`Source / Medium`) %>%
   summarise(Month_Count = n_distinct(`Month of the year`), .groups = "drop") %>%
   filter(Month_Count == 12)
 
-df_filtered %>%
-  arrange(`Source / Medium`, Year, as.integer(`Month of the year`)) %>%
-  select(`Source / Medium`, Year, `Month of the year`, `Conversion Rate (%)`)
+month_coverage
 
-# STEP 2: Filter original data to just these top devices
-df_filtered <- df %>%
-  semi_join(month_coverage, by = "Source / Medium")
+df_filtered <- df_clean_task_one %>%
+  semi_join(month_coverage, by = "Source / Medium") %>%
+  mutate(
+    Month_Name = factor(
+      month.name[as.integer(`Month of the year`)],
+      levels = month.name
+    ),
+    YearMonth = paste(Year, Month_Name, sep = "-")
+  ) %>%
+  arrange(`Source / Medium`, Year, as.integer(`Month of the year`))
 
-# STEP 3: Make sure Month is ordered correctly
-df_filtered$`Month of the year` <- factor(df_filtered$`Month of the year`, levels = 1:12)
+conversion_table <- df_filtered %>%
+  select(`Source / Medium`, Year, Month_Name, `Conversion Rate (%)`)
 
-# STEP 4: Plot
-ggplot(df_filtered, aes(x = `Month of the year`,
-                        y = `Conversion Rate (%)`,
-                        color = `Source / Medium`,
-                        group = `Source / Medium`)) +
-  geom_line(size = 1.1) +
-  geom_point(size = 2) +
-  facet_wrap(~ Year) +
-  labs(title = "Conversion Rate by Device, Month, and Year",
-       x = "Month",
-       y = "Conversion Rate (%)",
-       color = "Device") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+kable(conversion_table, 
+      caption = "Conversion Rates, Sessions, and Revenue by Device, Year, and Month",
+      col.names = c("Device", "Year", "Month", "Conversion Rate (%)"))
 ```
 Convert the numberic month to words for easier visualization Also check if the proposion rate is too biass to one side, make sure it's acceptable simulate
 
+```{r fig.width=10, fig.height=8}
+ggplot(df_filtered, aes(x = YearMonth, y = `Conversion Rate (%)`, group = `Source / Medium`, color = `Source / Medium`)) +
+  geom_line(size = 1) +
+  geom_point(size = 3) +  # Put point directly on the line
+  theme_minimal() +
+  labs(
+    title = "Conversion Rate by Device Over Time",
+    subtitle = "Timeline: September 2019 to August 2020 (Devices with Full 12-Month Coverage)",
+    x = "Month-Year",
+    y = "Conversion Rate (%)"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 9),
+    plot.title = element_text(face = "bold", size = 16),
+    plot.subtitle = element_text(size = 12),
+    legend.position = "top",
+    legend.title = element_text(size = 12),
+    legend.text = element_text(size = 10),
+    panel.grid.minor = element_blank()
+  )
+```
+The line chart shows monthly conversion rates for each device over time. Most sources maintained a relatively stable and low conversion rate (under 1%) throughout the 12 months, such as A, B, and F. These sources are more consistent but may lack efficiency in turning users into conversions.
+
+#### Top 5 conversion rate
+
 ```{r}
-device_2019 <- filter(conversion_by_device, Year == 2019)
-device_2020 <- filter(conversion_by_device, Year == 2020)
+df_filtered <- df_clean_task_one %>%
+  mutate(
+    Month_Name = factor(
+      month.name[as.integer(`Month of the year`)],
+      levels = month.name
+    ),
+    YearMonth = paste(Year, Month_Name, sep = "-")
+  ) %>%
+  arrange(`Source / Medium`, Year, as.integer(`Month of the year`))
 
-kable(device_2019, caption = "Conversion Rate by Device - 2019")
-kable(device_2020, caption = "Conversion Rate by Device - 2020")
+# Calculate average conversion rate per device and select top 5
+top_devices <- df_filtered %>%
+  group_by(`Source / Medium`) %>%
+  summarise(Avg_Conversion_Rate = mean(`Conversion Rate (%)`, na.rm = TRUE), .groups = "drop") %>%
+  arrange(desc(Avg_Conversion_Rate)) %>%
+  slice_head(n = 5)
 
-ggplot(device_2019, aes(x = factor(`Month of the year`), y = Conversion, fill = `Source / Medium`)) +
-  geom_col(position = "dodge") +
-  labs(
-    title = "2019: Avg. Conversion Rate by Device per Month",
-    x = "Month",
-    y = "Conversion Rate (%)"
-  ) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 0))
+# Print top 5 devices for verification
+print(top_devices)
 
-ggplot(device_2020, aes(x = factor(`Month of the year`), y = Conversion, fill = `Source / Medium`)) +
-  geom_col(position = "dodge") +
-  labs(
-    title = "2020: Avg. Conversion Rate by Device per Month",
-    x = "Month",
-    y = "Conversion Rate (%)"
-  ) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 0))
+# Filter data for top 5 devices
+df_top5 <- df_filtered %>%
+  filter(`Source / Medium` %in% top_devices$`Source / Medium`)
+
+
 ```
 
-**Conclusion** Case 1: Too many records, it's not visualizable
 
+```{r fig.width=10, fig.height=8}
+ggplot(df_top5, aes(x = YearMonth, y = `Conversion Rate (%)`, group = `Source / Medium`, color = `Source / Medium`)) +
+  geom_line(size = 1) +
+  geom_point(size = 3) +
+  theme_minimal() +
+  labs(
+    title = "Conversion Rate by Top 5 Devices Over Time",
+    subtitle = "Timeline: September 2019 to August 2020",
+    x = "Month-Year",
+    y = "Conversion Rate (%)"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 9),
+    plot.title = element_text(face = "bold", size = 16),
+    plot.subtitle = element_text(size = 12),
+    legend.position = "top",
+    legend.title = element_text(size = 12),
+    legend.text = element_text(size = 10),
+    panel.grid.minor = element_blank()
+  )
+```
 
 
 ## Task 1.C Produce an analysis to show the relationship between Bounce rate, Conversion, Transaction, and Revenue. Comments on your findings in terms of how each of the three relates to each other
